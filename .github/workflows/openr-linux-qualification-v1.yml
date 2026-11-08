@@ -1,0 +1,41 @@
+# Review-only. No active .github/workflows file is created locally.
+name: OpenR Linux qualification v1 ONLY
+'on':
+  workflow_dispatch:
+    inputs:
+      approved_sha:
+        description: Exact reviewed wrapper commit (bound by local consumed intent)
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: openr-linux-qualification-v1-once
+  cancel-in-progress: false
+jobs:
+  qualification:
+    if: >-
+      ${{ false && github.run_number == 1 && github.run_attempt == 1 &&
+          github.event.repository.private == false && github.repository_owner == 'ice-xz' &&
+          github.ref == 'refs/heads/qualification-v1' && github.sha == inputs.approved_sha }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ inputs.approved_sha }}
+          persist-credentials: false
+      - name: Qualification only (no install or OpenR)
+        env:
+          QUAL_CONTEXT: >-
+            {"repository":"${{ github.repository }}","visibility":"${{ github.event.repository.visibility }}","runner_environment":"${{ runner.environment }}","runner_os":"${{ runner.os }}","event":"${{ github.event_name }}","run_number":"${{ github.run_number }}","run_attempt":"${{ github.run_attempt }}","run_id":"${{ github.run_id }}","ref":"${{ github.ref }}","workflow_ref":"${{ github.workflow_ref }}","sha":"${{ github.sha }}","approved_sha":"${{ inputs.approved_sha }}"}
+        run: /usr/bin/python3 -I bootstrap.py
+      - name: Collect bounded qualification evidence, including failure
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: linux-qualification-evidence
+          path: qualification-evidence.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+          overwrite: false
